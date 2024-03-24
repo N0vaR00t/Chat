@@ -18,9 +18,9 @@ public class Server {
 
     public static void main(String[] args) throws Exception {
 
+        // Start the server
         serverAddress = InetAddress.getLocalHost();
         System.out.println("Server IP address: " + serverAddress.getHostAddress());
-
         System.out.println("The chat server is running...");
         ExecutorService pool = Executors.newFixedThreadPool(500);
 

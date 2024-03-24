@@ -76,8 +76,8 @@ public class Client2 {
     }
 
     public static void main(String[] args) throws Exception {
-        // Prompt the user to enter the server IP address
-        String serverAddress = JOptionPane.showInputDialog(
+
+        String serverAddress = JOptionPane.showInputDialog(                                 // Prompt the user to enter the server IP address
                 null,
                 "Please enter the server IP address:",
                 "Server IP Input",
@@ -85,8 +85,8 @@ public class Client2 {
         );
 
         if (serverAddress == null || serverAddress.isEmpty()) {
-            // If the user pressed cancel or entered an empty string, exit the program
-            System.err.println("Server IP is required.");
+
+            System.err.println("Server IP is required.");                                    // If the user pressed cancel or entered an empty string, exit the program
             return;
         }
 
