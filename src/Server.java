@@ -1,43 +1,33 @@
-import java.io.IOException;                                                                //  import everything needed
+import java.io.IOException;
 import java.io.PrintWriter;
-import java.net.ServerSocket;
 import java.net.InetAddress;
+import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.Set;
-import java.util.HashSet;
-import java.util.Scanner;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.Map;
-
 
 public class Server {
+    public static Set<String> names = new HashSet<>();
+    public static Set<PrintWriter> writers = new HashSet<>();
+    public static Map<String, PrintWriter> clients = new ConcurrentHashMap<>();
+    public static String coordinator = null;
 
-    private static Set<String> names = new HashSet<>();                                  // all client names
-    private static Set<PrintWriter> writers = new HashSet<>();                           // the set for all the clients
-    private static final int PORT = 8080;
-    private static InetAddress serverAddress;
-    private static Map<String, PrintWriter> clients = new ConcurrentHashMap<>();
-
-    public static void main(String[] args) throws Exception {                             // start the server
-
-
-        serverAddress = InetAddress.getLocalHost();
-        System.out.println("Server IP address: " + serverAddress.getHostAddress());
+    public static void main(String[] args) throws IOException {
+        InetAddress serverAddress = InetAddress.getLocalHost(); // the pc's server IP
+        System.out.println("Server IP: " + serverAddress);
         System.out.println("The chat server is running...");
         ExecutorService pool = Executors.newFixedThreadPool(500);
 
-        try (ServerSocket listener = new ServerSocket(PORT)) {
-
+        try (ServerSocket listener = new ServerSocket(8080)) {
             while (true) {
                 pool.execute(new Handler(listener.accept()));
             }
         }
     }
 
-    public static class Handler implements Runnable {
-
+    private static class Handler implements Runnable {
         private String name;
         private Socket socket;
         private Scanner in;
@@ -48,12 +38,11 @@ public class Server {
         }
 
         public void run() {
-
             try {
                 in = new Scanner(socket.getInputStream());
                 out = new PrintWriter(socket.getOutputStream(), true);
 
-                while (true) {                                                           // keep requesting until unique
+                while (true) {
                     out.println("SUBMIT NAME");
                     name = in.nextLine();
 
@@ -61,7 +50,6 @@ public class Server {
                         return;
                     }
                     synchronized (names) {
-
                         if (!name.isEmpty() && !names.contains(name)) {
                             names.add(name);
                             break;
@@ -72,8 +60,7 @@ public class Server {
                 out.println("NAME ACCEPTED " + name);
 
                 for (PrintWriter writer : writers) {
-
-                    writer.println("MESSAGE " + name + " has joined");                     // let everyone know that the new person has joined!
+                    writer.println("MESSAGE " + name + " has joined");
                 }
 
                 PrintWriter writerToAdd = out;
@@ -81,41 +68,36 @@ public class Server {
                 tempWriters.add(writerToAdd);
 
                 writers = tempWriters;
-                writers.add(out);                                                          // add the socket's print writer
-                clients.put(name, out);                                                    // add the socket's print writer to the clients map
+                writers.add(out);
+                clients.put(name, out);
 
-                while (true) {                                                             // accept messages
+                if (coordinator == null && !names.isEmpty()) {
+                    coordinator = name;
+                    out.println("COORDINATOR " + coordinator);
+                }
 
+                while (true) {
                     String input = in.nextLine();
-
                     if (input.toLowerCase().startsWith("/quit")) {
                         return;
                     }
 
                     String[] commands = input.split(" ");
-
-                    if (commands.length > 1                                                // send private message
-                            && commands[0].equalsIgnoreCase("private")) {
+                    if (commands.length > 1 && commands[0].equalsIgnoreCase("private")) {
                         if (clients.containsKey(commands[1])) {
-                            String message = "MESSAGE (" + name + "): "
-                                    + input.substring(commands[1].length()
-                                    + 2);
-
-                            clients.get(commands[1]).println(message);                      // display massage to the sender
+                            String message = "MESSAGE (" + name + "): " + input.substring(commands[1].length() + 2);
+                            clients.get(commands[1]).println(message);
                             out.println(message);
                         }
                     } else {
-
                         for (PrintWriter writer : writers) {
                             writer.println("MESSAGE " + name + ": " + input);
                         }
                     }
                 }
-            } catch (Exception e) {
-                System.out.println(e);
-
+            } catch (IOException e) {
+                e.printStackTrace();
             } finally {
-
                 if (out != null) {
                     clients.remove(name);
                     writers.remove(out);
@@ -129,11 +111,26 @@ public class Server {
                     }
                 }
 
+                if (coordinator.equals(name)) {
+                    selectNewCoordinator();
+                }
+
                 try {
                     socket.close();
-
                 } catch (IOException e) {
+                    e.printStackTrace();
                 }
+            }
+        }
+
+        public void selectNewCoordinator() {
+            if (!names.isEmpty()) {
+                coordinator = names.iterator().next();
+                for (PrintWriter writer : writers) {
+                    writer.println("COORDINATOR " + coordinator);
+                }
+            } else {
+                coordinator = null;
             }
         }
     }
